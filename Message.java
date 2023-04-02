@@ -12,7 +12,6 @@ public class Message implements Serializable {
 
 	public Message(MessageType type, Edge edge, int targetID, int senderID, 
 			int senderLeaderID, int phaseNumber) {
-		super();
 		this.type = type;
 		this.edge = edge;
 		this.targetID = targetID;

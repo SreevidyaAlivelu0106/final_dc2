@@ -7,7 +7,6 @@ public class Client implements Runnable {
 	Node thisNode;
 
 	public Client(Node node) {
-		super();
 		this.thisNode = node;
 	}
 
@@ -47,7 +46,7 @@ public class Client implements Runnable {
 				}
 
 				// if a response from MWOE involved edges
-				else if (Message.type == MessageType.MWOEREJECT || Message.type == MessageType.MWOECANDIDATE){
+				else if (Message.type == MessageType.REJECT || Message.type == MessageType.PROSPECT){
 						thisNode.mwoeCadidateReplies.add(Message);
 				}
 				// otherwise just add to messages

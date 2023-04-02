@@ -19,7 +19,7 @@ public class Node {
 	boolean stopClient;
 	boolean marked;
 	int phase;
-	boolean startMWOESearchFlag;
+	boolean startSearch;
 	int parentID;
 	int numNodes;
 	int numDummy;
@@ -40,7 +40,7 @@ public class Node {
 		this.terminateMessages = new CopyOnWriteArrayList<>();
 		this.leaderID = this.UID;
 		this.phase = 0;
-		this.startMWOESearchFlag = true;
+		this.startSearch = true;
 		this.parentID = -1;
 		this.sendRejectMessageEnable = true;
 		this.host = hostName;
@@ -59,8 +59,8 @@ public class Node {
 		this.marked = marked;
 	}
 
-	public synchronized void setStartMWOESearchFlag(boolean startMWOESearchFlag) {
-		this.startMWOESearchFlag = startMWOESearchFlag;
+	public synchronized void setStartSearch(boolean search) {
+		this.startSearch = search;
 	}
 
 	public synchronized void setStopClientMgr(boolean stopClient) {

@@ -8,7 +8,6 @@ public class Edge implements Comparable<Edge>, Serializable{
 	int weight;
 
 	public Edge(int firstID, int secondID, int weight) {
-		super();
 		this.firstID = Math.min(firstID, secondID);
 		this.secondID = Math.max(firstID, secondID);
 		this.weight = weight;
