@@ -20,24 +20,70 @@ public class main implements Runnable {
 		while (!thisNode.stopClient) {
 			// if node hasn't sent search message
 			if (thisNode.startSearch) {
+				// for each of the node's edges, send search message
 				for (Edge edge : thisNode.graphEdges) {
 					int targetID = (thisNode.UID != edge.firstID ? edge.firstID : edge.secondID);
 					if (targetID != thisNode.UID) {
-						Message message = new Message(MessageType.SEARCH, edge, targetID, thisNode.UID,
+						Message searchMessage = new Message(MessageType.SEARCH, edge, targetID, thisNode.UID,
 								thisNode.leaderID, thisNode.phase);
 
-						sendMessage(message, targetID);
+						sendMessage(searchMessage, targetID);
 					}
 				}
+				// set the searched boolean to false
 				thisNode.setStartSearch(false);
 			}
 
+			// wait for messages
 			try {
 				Thread.sleep(2000);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
-			processMessages();
+
+			// Read the messages
+			CopyOnWriteArrayList<Message> Messages = thisNode.Messages;
+		synchronized (Messages) {
+			for (Iterator<Message> iterator = Messages.iterator(); iterator.hasNext();) {
+				Message message = iterator.next();
+
+				if (message.phase == thisNode.phase) {
+					switch (message.type) {
+						case SEARCH:
+							processMWOESearch(message);
+							Messages.remove(message);
+							break;
+
+						case MERGE:
+							processMergeMessage(message);
+							Messages.remove(message);
+							break;
+
+						default:
+							break;
+					}
+				}
+			}
+
+		}
+
+					// // Read the messages
+					// CopyOnWriteArrayList<Message> Messages = thisNode.Messages;
+					// for(Message message : Messages){
+					// 	if(message.phase == thisNode.phase){
+					// 		if(message.type == MessageType.SEARCH){
+					// 			processMWOESearch(message);
+					// 		}
+					// 		else if(message.type == MessageType.MERGE){
+					// 			processMergeMessage(message);
+					// 		}
+					// 	}
+					// }
+					// Messages.clear();
+		
+
+			// END READ MESSAGES
+
 			processMWOECandidateMessage();
 
 			// should i sleep for some time before processing new leader message ?
@@ -51,11 +97,9 @@ public class main implements Runnable {
 			processInformNewLeaderMessage();
 			processNewLeaderMessage();
 			detectAndProcessTermination();
-
 		}
 
 		System.out.println("Stopping GHS Processor");
-		// runCleanUp();
 	}
 
 	public void detectAndProcessTermination() {
@@ -116,38 +160,6 @@ public class main implements Runnable {
 			}
 		}
 
-	}
-
-	public void processMessages() {
-
-		CopyOnWriteArrayList<Message> Messages = thisNode.Messages;
-		synchronized (Messages) {
-			for (Iterator<Message> iterator = Messages.iterator(); iterator.hasNext();) {
-				Message message = iterator.next();
-
-				/*
-				 * get current phase unprocessed message out of buffer
-				 * process it, once processed, remove message from the buffer
-				 */
-				if (message.phase == thisNode.phase) {
-					switch (message.type) {
-						case SEARCH:
-							processMWOESearch(message);
-							Messages.remove(message);
-							break;
-
-						case MERGE:
-							processMergeMessage(message);
-							Messages.remove(message);
-							break;
-
-						default:
-							break;
-					}
-				}
-			}
-
-		}
 	}
 
 	public void processMergeMessage(Message message) {
