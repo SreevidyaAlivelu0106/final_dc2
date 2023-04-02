@@ -3,57 +3,58 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 
-/*
- * Thread to handle incoming connections to node socket
- * Till termination, it listens to socket and puts all the messages
- * to thread safe collection
- */
-public class Client implements Runnable{
-
-	/*
-	 *Object of type of Node on which this clientManager thread runs 
-	 */
+public class Client implements Runnable {
 	Node thisNode;
 
-	public Client(Node t) {
+	public Client(Node node) {
 		super();
-		this.thisNode = t;
+		this.thisNode = node;
 	}
 
 	@Override
 	public void run() {
-
-		while(!thisNode.stopClient)
-		{
-			ObjectInputStream in = null;
+		while (!thisNode.stopClient) {
+			ObjectInputStream inputStream;
 
 			try {
 				Socket s = thisNode.serverSocket.accept();
-				in = new ObjectInputStream(s.getInputStream());
-				Message Message = (Message)in.readObject();
-				System.out.println("Received " + Message.type + " message:" + Message);
+				inputStream = new ObjectInputStream(s.getInputStream());
+				Message Message = (Message) inputStream.readObject();
+				System.out.println(" message:" + Message);
 
-				if(Message.type==MessageType.DUMMY && Message.senderID!=-1)
-				{
+				if (Message.type == MessageType.DUMMY && Message.senderID != -1) {
+					// propogate the message
 					Message message = new Message(MessageType.DUMMY, null, Message.senderID, -1, -1, thisNode.phase);
-					sendMessage(message, message.targetID);
+					// get host and port of target node
+					Node targetNode = Node.nodeMap.get(message.targetID);
+					try {
+						// make new connection
+						Socket socket = new Socket(targetNode.host, targetNode.port);
+						ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+						out.writeObject(message);
+						socket.close();
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
 				}
-				if(Message.senderID==-1)
-					thisNode.setDummyReplies((thisNode.numDummy+1));
+				// If a dummy message
+				else if (Message.senderID == -1)
+					thisNode.setDummyReplies((thisNode.numDummy + 1));
 
-				if(Message.type!=MessageType.DUMMY && Message.type != MessageType.TERMINATE)
-				{
-					if(Message.type == MessageType.MWOEREJECT || Message.type == MessageType.MWOECANDIDATE)
-						thisNode.mwoeCadidateReplies.add(Message);
-					else
-						thisNode.Messages.add(Message);	
-
-				}
-
-				if(Message.type == MessageType.TERMINATE)
-				{
+				// if a terminate message
+				else if (Message.type == MessageType.TERMINATE) {
 					thisNode.terminateMessages.add(Message);
 				}
+
+				// if a response from MWOE involved edges
+				else if (Message.type == MessageType.MWOEREJECT || Message.type == MessageType.MWOECANDIDATE){
+						thisNode.mwoeCadidateReplies.add(Message);
+				}
+				// otherwise just add to messages
+				else{
+					thisNode.Messages.add(Message);
+				}
+
 			} catch (IOException e) {
 				e.printStackTrace();
 			} catch (ClassNotFoundException e) {
@@ -62,32 +63,6 @@ public class Client implements Runnable{
 
 		}
 
-		System.out.println("Stopping client Manager");
-		//runCleanUp();
-	}
-
-	public void runCleanUp() {
-
-		System.out.println("Closing server sockets");
-		try {
-			thisNode.serverSocket.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-
-	public void sendMessage(Message message, int targetUID)
-	{
-		Node targetNode  = Node.nodeMap.get(targetUID);
-		try {
-			Socket socket = new Socket(targetNode.host, targetNode.port);
-			ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
-			System.out.println("Sending message: " + message);
-			out.writeObject(message);
-			socket.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-
+		System.out.println("Stopping client for " + thisNode.UID);
 	}
 }
