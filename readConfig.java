@@ -2,6 +2,7 @@ import java.io.*;
 import java.net.ServerSocket;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 	
@@ -89,15 +90,13 @@ import java.util.regex.Pattern;
 		t.start();
 
 		try {
-			Thread.sleep(10000);
+			TimeUnit.SECONDS.sleep(5);
 		} catch (InterruptedException e1) {
 			e1.printStackTrace();
 		}
 
-
 		main GHS = new main(thisNode);
-		Thread thread = new Thread(GHS);
-		thread.start();
+		GHS.GHS_Run();
 	}
 
 }

@@ -19,7 +19,6 @@ public class Client implements Runnable {
 				Socket s = thisNode.serverSocket.accept();
 				inputStream = new ObjectInputStream(s.getInputStream());
 				Message Message = (Message) inputStream.readObject();
-				System.out.println(" message:" + Message);
 
 				if (Message.type == MessageType.DUMMY && Message.senderID != -1) {
 					// propogate the message

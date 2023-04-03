@@ -1,14 +1,12 @@
 import java.net.ServerSocket;
-import java.util.HashMap;
+import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 public class Node {
-
 	int UID;
 	int leaderID;
 	CopyOnWriteArrayList<Edge> graphEdges;
-	CopyOnWriteArrayList<Edge> treeEdges;
-
+	CopyOnWriteArrayList<Edge> MSTEdges;
 	String host;
 	int port;
 	ServerSocket serverSocket;
@@ -18,8 +16,10 @@ public class Node {
 	int phase;
 	boolean startSearch;
 	int parentID;
+
 	int numNodes;
 	int numDummy;
+	
 	boolean sendReject;
 	boolean terminationDetectFlag;
 	CopyOnWriteArrayList<Message> terminateMessages;
@@ -32,9 +32,9 @@ public class Node {
 		this.UID = id;
 		this.Messages = new CopyOnWriteArrayList<>();
 		this.graphEdges = new CopyOnWriteArrayList<>();
-		this.treeEdges = new CopyOnWriteArrayList<>();
 		this.searchReplies = new CopyOnWriteArrayList<>();
 		this.terminateMessages = new CopyOnWriteArrayList<>();
+		this.MSTEdges = new CopyOnWriteArrayList<>();
 		this.leaderID = this.UID;
 		this.phase = 0;
 		this.startSearch = true;
@@ -91,6 +91,4 @@ public class Node {
 	public synchronized void setSendReject(boolean sendReject) {
 		this.sendReject = sendReject;
 	}
-	
-
 }

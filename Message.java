@@ -22,7 +22,7 @@ public class Message implements Serializable {
 
 	@Override
 	public String toString() {
-		return "Type:" + type + ", Sender:" + senderID + ", Target: " + targetID + ", Source Leader:" +  senderLeader + " ,Phase: " + phase + "-- Edge info: " + edge;
+		return "Type:" + type + ", Sender:" + senderID + " --> Target: " + targetID + ", Source Leader:" +  senderLeader + " ,Phase: " + phase + " -- Edge info: " + edge;
 	}
 
 
