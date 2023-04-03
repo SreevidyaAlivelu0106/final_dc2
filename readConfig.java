@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
 		int UID = Integer.parseInt(args[0]);
 
 		System.out.println("UID:" + UID);
-		String filePath = "/home/011/s/sk/skj180001/distributed/dc/dc2-v1/config.txt";
+		String filePath = "/home/012/s/sx/sxa200150/final_dc2/config.txt";
 		
 		HashMap<Integer, Node> nodeMap = new HashMap<>();
 		CopyOnWriteArrayList<Edge> edgeList = new CopyOnWriteArrayList<>();
