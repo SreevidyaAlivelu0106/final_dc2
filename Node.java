@@ -2,9 +2,6 @@ import java.net.ServerSocket;
 import java.util.HashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
-/*
- * A class to store node specific data
- */
 public class Node {
 
 	int UID;
@@ -23,12 +20,12 @@ public class Node {
 	int parentID;
 	int numNodes;
 	int numDummy;
-	boolean sendRejectMessageEnable;
+	boolean sendReject;
 	boolean terminationDetectFlag;
 	CopyOnWriteArrayList<Message> terminateMessages;
 	static HashMap<Integer, Node> nodeMap;
 	CopyOnWriteArrayList<Message> Messages;
-	CopyOnWriteArrayList<Message> mwoeCadidateReplies;
+	CopyOnWriteArrayList<Message> searchReplies;
 
 	Node(int id, String hostName, int portNum)
 	{
@@ -36,13 +33,13 @@ public class Node {
 		this.Messages = new CopyOnWriteArrayList<>();
 		this.graphEdges = new CopyOnWriteArrayList<>();
 		this.treeEdges = new CopyOnWriteArrayList<>();
-		this.mwoeCadidateReplies = new CopyOnWriteArrayList<>();
+		this.searchReplies = new CopyOnWriteArrayList<>();
 		this.terminateMessages = new CopyOnWriteArrayList<>();
 		this.leaderID = this.UID;
 		this.phase = 0;
 		this.startSearch = true;
 		this.parentID = -1;
-		this.sendRejectMessageEnable = true;
+		this.sendReject = true;
 		this.host = hostName;
 		this.port = portNum;
 	}
@@ -63,47 +60,24 @@ public class Node {
 		this.startSearch = search;
 	}
 
-	public synchronized void setStopClientMgr(boolean stopClient) {
+	public synchronized void setStopClient(boolean stopClient) {
 		this.stopClient = stopClient;
 	}
 
-
-	public void setUID(int uID) {
-		UID = uID;
-	}
-
-
-	public void setLeaderUID(int leaderUID) {
-		this.leaderID = leaderUID;
-	}
-
-
 	public void setGraphEdges(CopyOnWriteArrayList<Edge> graphEdges) {
 		this.graphEdges = graphEdges;
-	}
-
-	public void setTreeEdges(CopyOnWriteArrayList<Edge> treeEdges) {
-		this.treeEdges = treeEdges;
 	}
 
 	public void setServerSocket(ServerSocket serverSocket) {
 		this.serverSocket = serverSocket;
 	}
 
-	public static void setConfigMap(HashMap<Integer, Node> nodeMap) {
+	public static void setNodeMap(HashMap<Integer, Node> nodeMap) {
 		Node.nodeMap = nodeMap;
-	}
-
-	public synchronized void setMessages(CopyOnWriteArrayList<Message> Messages) {
-		this.Messages = Messages;
 	}
 
 	public synchronized void setPhaseNumber(int phase) {
 		this.phase = phase;
-	}
-
-	public synchronized void setMwoeCadidateReplyBuffer(CopyOnWriteArrayList<Message> mwoeCadidateReplies) {
-		this.mwoeCadidateReplies = mwoeCadidateReplies;
 	}
 
 	public synchronized void setnumNodes(int numNodes) {
@@ -114,16 +88,9 @@ public class Node {
 		this.numDummy = numDummy;
 	}
 
-	public synchronized boolean isSendRejectMessageEnable() {
-		return sendRejectMessageEnable;
-	}
-
-	public synchronized void setSendRejectMessageEnable(boolean sendRejectMessageEnable) {
-		this.sendRejectMessageEnable = sendRejectMessageEnable;
+	public synchronized void setSendReject(boolean sendReject) {
+		this.sendReject = sendReject;
 	}
 	
-	public synchronized void setTerminateMessages(CopyOnWriteArrayList<Message> terminateMessages) {
-		this.terminateMessages = terminateMessages;
-	}
 
 }

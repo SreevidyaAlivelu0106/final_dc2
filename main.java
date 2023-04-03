@@ -41,72 +41,168 @@ public class main implements Runnable {
 				e.printStackTrace();
 			}
 
+			int count = 0;
+			int needMessages = 0;
+			if(thisNode.UID == thisNode.leaderID){
+				needMessages = thisNode.graphEdges.size();
+			}
+			else{
+				needMessages = thisNode.graphEdges.size() - 1;
+			}
+
 			// Read the messages
-			CopyOnWriteArrayList<Message> Messages = thisNode.Messages;
-		synchronized (Messages) {
-			for (Iterator<Message> iterator = Messages.iterator(); iterator.hasNext();) {
+			CopyOnWriteArrayList<Message> ReadMessages = thisNode.Messages;
+		synchronized (ReadMessages) {
+			for (Iterator<Message> iterator = ReadMessages.iterator(); iterator.hasNext();) {
 				Message message = iterator.next();
 
 				if (message.phase == thisNode.phase) {
-					switch (message.type) {
-						case SEARCH:
+					if(message.type == MessageType.SEARCH){
 							processMWOESearch(message);
-							Messages.remove(message);
-							break;
-
-						case MERGE:
-							processMergeMessage(message);
-							Messages.remove(message);
-							break;
-
-						default:
-							break;
+							ReadMessages.remove(message);
+					}
+					else if (message.type == MessageType.MERGE){
+						processMergeMessage(message);
+						ReadMessages.remove(message);
 					}
 				}
 			}
-
 		}
+			
+		// Read the responses to search messages
+			CopyOnWriteArrayList<Message> ReplyMessages = thisNode.searchReplies;
+			synchronized (ReplyMessages) {
+				for (Iterator<Message> iterator = ReplyMessages.iterator(); iterator.hasNext();) {
+					Message message = iterator.next();
+					if (message.phase == thisNode.phase)
+						count++;
+					}
+			}
 
-					// // Read the messages
-					// CopyOnWriteArrayList<Message> Messages = thisNode.Messages;
-					// for(Message message : Messages){
-					// 	if(message.phase == thisNode.phase){
-					// 		if(message.type == MessageType.SEARCH){
-					// 			processMWOESearch(message);
-					// 		}
-					// 		else if(message.type == MessageType.MERGE){
-					// 			processMergeMessage(message);
-					// 		}
-					// 	}
-					// }
-					// Messages.clear();
-		
+			if (needMessages == count) {
+				ArrayList<Edge> tempCandiateList = new ArrayList<>();
+				synchronized (ReplyMessages) {
+					for (Iterator<Message> iterator = ReplyMessages.iterator(); iterator.hasNext();) {
+						Message message = iterator.next();
+						if (message.type != MessageType.REJECT)
+							tempCandiateList.add(message.edge);
+						ReplyMessages.remove(message);
+					}
+				}
+	
+				Edge minEdge = getMinEdge(tempCandiateList);
+				if(minEdge != null){
+					System.out.println("Min Edge: " + minEdge);
+				}
 
-			// END READ MESSAGES
+				
+				if (thisNode.UID != thisNode.leaderID) {
+					if (minEdge != null) {
+						Message mwoeCandiate = new Message(MessageType.PROSPECT, minEdge, thisNode.parentID,
+								thisNode.UID, thisNode.leaderID, thisNode.phase);
+	
+						sendMessage(mwoeCandiate, mwoeCandiate.targetID);
+					} else {
+						if (thisNode.sendReject) {
+							thisNode.setSendReject(false);
+							Message mwoeCandiate = new Message(MessageType.REJECT, minEdge, thisNode.parentID,
+									thisNode.UID, thisNode.leaderID, thisNode.phase);
+	
+							sendMessage(mwoeCandiate, mwoeCandiate.targetID);
+						}
+	
+					}
+				} else {
 
-			processMWOECandidateMessage();
+					if (minEdge == null) {
+						System.out.println("Terminate");
+						Message terminateMessage = new Message(MessageType.TERMINATE, null, -1, thisNode.UID,
+								thisNode.leaderID, thisNode.phase);
+	
+						sendMessageOnTreeEdges(thisNode, terminateMessage, MessageType.TERMINATE);
+						thisNode.setStopClient(true);
+					} else {
+						if (thisNode.treeEdges.size() != 0 && !isNodePartOfEdge(thisNode, minEdge))
+							sendMergeMessageOnTreeEdges(minEdge);
+						else {
+							if (!edgeExistInTreeEdgeList(minEdge, thisNode)) {
+								int targetID = thisNode.UID != minEdge.firstID ? minEdge.firstID : minEdge.secondID;
+	
+								// add MST edge
+								thisNode.treeEdges.add(minEdge);
+	
+								Message Message = new Message(MessageType.MERGE, minEdge, targetID, thisNode.UID,
+										thisNode.leaderID, thisNode.phase);
+								sendMessage(Message, targetID);
+							} 
+							else {
+								int newLeaderUID = Math.max(minEdge.firstID, minEdge.secondID);
+								Message newLeaderInfoMessage = new Message(MessageType.PROPOGATENL,
+										new Edge(newLeaderUID, newLeaderUID, -1), newLeaderUID,
+										thisNode.UID, thisNode.leaderID, thisNode.phase);
+								sendMessage(newLeaderInfoMessage, newLeaderUID);
+							}
+	
+						}
+					}
+				}
+			} 
+			else {
+				System.out.println("Waiting...");
+			}
 
-			// should i sleep for some time before processing new leader message ?
-			// i guess yes, to wait for all merge messages to reach me if any
 			try {
 				Thread.sleep(3000);
 			} catch (InterruptedException e) {
 				e.printStackTrace();
 			}
 
-			processInformNewLeaderMessage();
-			processNewLeaderMessage();
-			detectAndProcessTermination();
-		}
+			// Decide new leader
+			CopyOnWriteArrayList<Message> PropogateMessages = thisNode.Messages;
+		synchronized (PropogateMessages) {
+			for (Iterator<Message> iterator = PropogateMessages.iterator(); iterator.hasNext();) {
+				Message message = iterator.next();
+				if (message.phase == thisNode.phase && message.type == MessageType.PROPOGATENL) {
 
-		System.out.println("Stopping GHS Processor");
+					int dummyTarget = thisNode.UID == thisNode.graphEdges.get(0).firstID
+							? thisNode.graphEdges.get(0).secondID
+							: thisNode.graphEdges.get(0).firstID;
+
+					for (int i = 0; i < (1 * thisNode.numNodes); i++) {
+						Message dummyMessage = new Message(MessageType.DUMMY, null, dummyTarget, thisNode.UID, -1,
+								thisNode.phase);
+						sendMessage(dummyMessage, dummyTarget);
+					}
+
+					if (thisNode.numDummy >= (1 * thisNode.numNodes)) {
+						int newLeaderUID = message.edge.firstID;
+						{PropogateMessages.remove(message);
+
+						Edge leaderEdge = new Edge(newLeaderUID, newLeaderUID, 0);
+						Message leaderMessageDataHolder = new Message(MessageType.REPLY, leaderEdge, -1, -1, -1, -1);
+						sendMessageOnTreeEdges(thisNode, leaderMessageDataHolder, MessageType.REPLY);
+						moveToNextPhase(thisNode, newLeaderUID);
+					}
+				}
+			}
+		}
 	}
 
-	public void detectAndProcessTermination() {
-
-		// do we need to check message buffers for pending messages
-
-		CopyOnWriteArrayList<Message> terminateMessages = thisNode.terminateMessages;
+	// Change when you get a new leader
+	CopyOnWriteArrayList<Message> NLMessages = thisNode.Messages;
+	synchronized (NLMessages) {
+		for (Iterator<Message> iterator = NLMessages.iterator(); iterator.hasNext();) {
+			Message message = iterator.next();
+			if (message.phase == thisNode.phase && message.type == MessageType.REPLY) {
+				sendMessageOnTreeEdges(thisNode, message, MessageType.REPLY);
+				moveToNextPhase(thisNode, message.edge.firstID);
+				printAllTreeEdges();
+			}
+		}
+	}
+	
+	// When you get termination, terminate and propogate message
+	CopyOnWriteArrayList<Message> terminateMessages = thisNode.terminateMessages;
 
 		synchronized (terminateMessages) {
 
@@ -125,41 +221,14 @@ public class main implements Runnable {
 							thisNode.leaderID, thisNode.phase);
 
 					sendMessageOnTreeEdges(thisNode, terminateMessage, MessageType.TERMINATE);
-					thisNode.setStopClientMgr(true);
-
+					thisNode.setStopClient(true);
 				}
 			}
 		}
-
+	
 	}
-
-	public void processNewLeaderMessage() {
-		CopyOnWriteArrayList<Message> Messages = thisNode.Messages;
-		synchronized (Messages) {
-			for (Iterator<Message> iterator = Messages.iterator(); iterator.hasNext();) {
-				Message message = iterator.next();
-
-				/*
-				 * get current phase unprocessed message out of buffer
-				 * process it, once processed, remove message from the buffer
-				 */
-				if (message.phase == thisNode.phase && message.type == MessageType.REPLY) {
-					System.out.println("Okay, well lets process new leader message now ->" + message);
-
-					/*
-					 * update my leader id, phase number, reset few flags
-					 * get ready for next phase
-					 */
-					// Message newLeaderMessage = new Message(MessageType.REPLY, message.edge,
-					// targetID, senderUID, senderComponentId, phaseNumber)
-					sendMessageOnTreeEdges(thisNode, message, MessageType.REPLY);
-					moveToNextPhase(thisNode, message.edge.firstID);
-					printAllTreeEdges();
-
-				}
-			}
-		}
-
+		System.out.println("End Algo");
+		return;
 	}
 
 	public void processMergeMessage(Message message) {
@@ -214,48 +283,6 @@ public class main implements Runnable {
 		}
 	}
 
-	public void processInformNewLeaderMessage() {
-
-		CopyOnWriteArrayList<Message> Messages = thisNode.Messages;
-		synchronized (Messages) {
-			for (Iterator<Message> iterator = Messages.iterator(); iterator.hasNext();) {
-				Message message = iterator.next();
-
-				/*
-				 * get current phase unprocessed message out of buffer
-				 * process it, once processed, remove message from the buffer
-				 */
-				if (message.phase == thisNode.phase && message.type == MessageType.PROPOGATENL) {
-					/*
-					 * 3n rounds dummy message transfer
-					 */
-
-					int dummyTarget = thisNode.UID != thisNode.graphEdges.get(0).firstID
-							? thisNode.graphEdges.get(0).firstID
-							: thisNode.graphEdges.get(0).secondID;
-
-					for (int i = 0; i < (1 * thisNode.numNodes); i++) {
-						Message dummyMessage = new Message(MessageType.DUMMY, null, dummyTarget, thisNode.UID, -1,
-								thisNode.phase);
-						sendMessage(dummyMessage, dummyTarget);
-					}
-
-					if (thisNode.numDummy >= (1 * thisNode.numNodes)) {
-						int newLeaderUID = message.edge.firstID;
-						Messages.remove(message);
-
-						Edge leaderEdge = new Edge(newLeaderUID, newLeaderUID, 0);
-						Message leaderMessageDataHolder = new Message(MessageType.REPLY, leaderEdge, -1, -1, -1, -1);
-						sendMessageOnTreeEdges(thisNode, leaderMessageDataHolder, MessageType.REPLY);
-						moveToNextPhase(thisNode, newLeaderUID);
-					} else {
-						System.out.println("Waiting for 3N synch to complete-- received till now " + thisNode.numDummy);
-					}
-				}
-			}
-		}
-
-	}
 
 	public void moveToNextPhase(Node thisNode2, int newLeaderUID) {
 		/*
@@ -271,7 +298,7 @@ public class main implements Runnable {
 			thisNode2.setStartSearch(true);
 		thisNode2.setParentID(-1);
 
-		thisNode.setSendRejectMessageEnable(true);
+		thisNode.setSendReject(true);
 		printAllTreeEdges();
 
 		// should we clear the MwoeCadidateReplyBuffer as well ???
@@ -307,119 +334,6 @@ public class main implements Runnable {
 		return (thisNode2.UID != e.firstID ? e.firstID : e.secondID);
 	}
 
-	public void processMWOECandidateMessage() {
-		int count = 0;
-		int requiredCount = thisNode.UID == thisNode.leaderID ? thisNode.graphEdges.size()
-				: thisNode.graphEdges.size() - 1;
-		CopyOnWriteArrayList<Message> Messages = thisNode.mwoeCadidateReplies;
-		synchronized (Messages) {
-			for (Iterator<Message> iterator = Messages.iterator(); iterator.hasNext();) {
-				Message message = iterator.next();
-
-				if (message.phase == thisNode.phase)
-					count++;
-			}
-		}
-
-		if (requiredCount == count) {
-			ArrayList<Edge> tempCandiateList = new ArrayList<>();
-			System.out.println("Required number of response for mwoe search message are received: " + requiredCount);
-			synchronized (Messages) {
-				for (Iterator<Message> iterator = Messages.iterator(); iterator.hasNext();) {
-					Message message = iterator.next();
-					if (message.type != MessageType.REJECT)
-						tempCandiateList.add(message.edge);
-					Messages.remove(message);
-				}
-			}
-
-			Edge minEdge = getMinEdge(tempCandiateList);
-			System.out.println("Min Edge found--> " + (minEdge != null ? minEdge : "null"));
-
-			/*
-			 * if this node is not leader then either send
-			 * local min edge up to parent or if not found local min
-			 * then send mwoe reject to parent
-			 */
-			if (thisNode.UID != thisNode.leaderID) {
-				System.out.println("Sending min edge to updward to the parent.");
-				if (minEdge != null) {
-					/*
-					 * if min edge found, send to temp bfs parent
-					 */
-
-					Message mwoeCandiate = new Message(MessageType.PROSPECT, minEdge, thisNode.parentID,
-							thisNode.UID, thisNode.leaderID, thisNode.phase);
-
-					sendMessage(mwoeCandiate, mwoeCandiate.targetID);
-				} else {
-					/*
-					 * send mwoe reject message
-					 */
-
-					if (thisNode.isSendRejectMessageEnable()) {
-						thisNode.setSendRejectMessageEnable(false);
-						Message mwoeCandiate = new Message(MessageType.REJECT, minEdge, thisNode.parentID,
-								thisNode.UID, thisNode.leaderID, thisNode.phase);
-
-						sendMessage(mwoeCandiate, mwoeCandiate.targetID);
-					}
-
-				}
-			} else {
-				/*
-				 * if ur parent and done with finding global min
-				 * if global min not null then initiate merge process
-				 * else send termination message
-				 */
-				if (minEdge == null) {
-					/*
-					 * send termination signal along tree edges
-					 *
-					 */
-					System.out.println("MWOE search failed, termination detected");
-					Message terminateMessage = new Message(MessageType.TERMINATE, null, -1, thisNode.UID,
-							thisNode.leaderID, thisNode.phase);
-
-					sendMessageOnTreeEdges(thisNode, terminateMessage, MessageType.TERMINATE);
-					thisNode.setStopClientMgr(true);
-				} else {
-					// System.out.println("Sending merge message on tree edges");
-					/*
-					 * this node is leader and found global min edge which is not
-					 * connected to you,
-					 * send merge message to all its tree edges
-					 */
-					if (thisNode.treeEdges.size() != 0 && !isNodePartOfEdge(thisNode, minEdge))
-						sendMergeMessageOnTreeEdges(minEdge);
-					else {
-						if (!edgeExistInTreeEdgeList(minEdge, thisNode)) {
-							int targetID = thisNode.UID != minEdge.firstID ? minEdge.firstID : minEdge.secondID;
-
-							System.out.println("Addint min edge in my edge list--> " + minEdge);
-							thisNode.treeEdges.add(minEdge);
-
-							Message Message = new Message(MessageType.MERGE, minEdge, targetID, thisNode.UID,
-									thisNode.leaderID, thisNode.phase);
-							sendMessage(Message, targetID);
-						} else {
-							System.out.println("Whola, Leader found in MWOE candiate processing");
-							int newLeaderUID = Math.max(minEdge.firstID, minEdge.secondID);
-							Message newLeaderInfoMessage = new Message(MessageType.PROPOGATENL,
-									new Edge(newLeaderUID, newLeaderUID, -1), newLeaderUID,
-									thisNode.UID, thisNode.leaderID, thisNode.phase);
-							sendMessage(newLeaderInfoMessage, newLeaderUID);
-						}
-
-					}
-				}
-			}
-
-		} else {
-			System.out.println("waiting for all responses to mwoe search messages, requiredCount= " + requiredCount
-					+ ", actual count: " + count + ", Messages size: " + Messages.size());
-		}
-	}
 
 	public void sendMergeMessageOnTreeEdges(Edge minEdge) {
 		CopyOnWriteArrayList<Edge> nodeTreeEdgeList = thisNode.treeEdges;
@@ -532,15 +446,13 @@ public class main implements Runnable {
 			out.writeObject(message);
 			socket.close();
 		} catch (IOException e) {
-			// e.printStackTrace();
-			System.out.println("Error in sending message on socket");
+			
 		}
 
 	}
 
 	public void printAllTreeEdges() {
-		System.out.println("My leader is: " + thisNode.leaderID);
-		System.out.println("All my tree edges are");
+		System.out.println("MST edges for " + thisNode.UID + ": ");
 		CopyOnWriteArrayList<Edge> nodeTreeEdgeList = thisNode.treeEdges;
 		synchronized (nodeTreeEdgeList) {
 			for (Iterator<Edge> itr = nodeTreeEdgeList.iterator(); itr.hasNext();) {
@@ -548,5 +460,6 @@ public class main implements Runnable {
 				System.out.println(e);
 			}
 		}
+		System.out.println("Leader: " + thisNode.leaderID);
 	}
 }

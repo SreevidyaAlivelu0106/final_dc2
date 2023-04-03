@@ -47,7 +47,7 @@ public class Client implements Runnable {
 
 				// if a response from MWOE involved edges
 				else if (Message.type == MessageType.REJECT || Message.type == MessageType.PROSPECT){
-						thisNode.mwoeCadidateReplies.add(Message);
+						thisNode.searchReplies.add(Message);
 				}
 				// otherwise just add to messages
 				else{
@@ -59,9 +59,7 @@ public class Client implements Runnable {
 			} catch (ClassNotFoundException e) {
 				e.printStackTrace();
 			}
-
 		}
-
 		System.out.println("Stopping client for " + thisNode.UID);
 	}
 }

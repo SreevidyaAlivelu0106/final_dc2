@@ -75,7 +75,7 @@ import java.util.regex.Pattern;
 			}
 		}
 
-		Node.setConfigMap(nodeMap);
+		Node.setNodeMap(nodeMap);
 		Node thisNode = Node.nodeMap.get(UID);
 		thisNode.setnumNodes(numNodes);
 		thisNode.setGraphEdges(thisNodeEdges);
@@ -84,13 +84,10 @@ import java.util.regex.Pattern;
 
 		thisNode.setServerSocket(socket);
 
-		System.out.println("Config file read, Server Socket created");
-
-		Client ct = new Client(thisNode);
-		Thread t = new Thread(ct);
+		Client client = new Client(thisNode);
+		Thread t = new Thread(client);
 		t.start();
 
-		System.out.println("Waiting for all nodes to spin up");
 		try {
 			Thread.sleep(10000);
 		} catch (InterruptedException e1) {
@@ -99,8 +96,8 @@ import java.util.regex.Pattern;
 
 
 		main GHS = new main(thisNode);
-		Thread t1 = new Thread(GHS);
-		t1.start();
+		Thread thread = new Thread(GHS);
+		thread.start();
 	}
 
 }
